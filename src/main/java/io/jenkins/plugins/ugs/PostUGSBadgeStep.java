@@ -1,16 +1,22 @@
 package io.jenkins.plugins.ugs;
 
+import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.google.common.collect.ImmutableSet;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.AbortException;
 import hudson.Extension;
 import hudson.ProxyConfiguration;
 import hudson.Util;
+import hudson.model.Item;
+import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.model.queue.Tasks;
+import hudson.security.ACL;
+import hudson.util.ListBoxModel;
+
 import java.util.Objects;
 import java.util.Set;
 import java.io.IOException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -34,92 +40,107 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-
+import org.jenkinsci.plugins.plaincredentials.StringCredentials;
 import org.jenkinsci.plugins.workflow.steps.Step;
 import org.jenkinsci.plugins.workflow.steps.StepContext;
 import org.jenkinsci.plugins.workflow.steps.StepDescriptor;
 import org.jenkinsci.plugins.workflow.steps.StepExecution;
 import org.jenkinsci.plugins.workflow.steps.SynchronousNonBlockingStepExecution;
+import org.kohsuke.accmod.Restricted;
+import org.kohsuke.accmod.restrictions.NoExternalUse;
+import org.kohsuke.stapler.AncestorInPath;
+import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
-
-// import static jenkins.plugins.slack.CredentialsObtainer.getItemForCredentials;
-// import static jenkins.plugins.slack.SlackNotifier.DescriptorImpl.findTokenCredentialIdItems;
+import org.kohsuke.stapler.StaplerRequest;
 
 /**
  * Workflow step to post a UGS badge
  */
 public class PostUGSBadgeStep extends Step {
-
     private static final Logger logger = Logger.getLogger(PostUGSBadgeStep.class.getName());
 
     private String apiUrl;
+    private String credentialId;
+
     private String project;
     private int changelist;
     private BadgeResult result;
     private String name;
     private String url;
-    private Boolean failOnError;
+    private boolean failOnError;
+
+    @DataBoundConstructor
+    public PostUGSBadgeStep(String project, int changelist, BadgeResult result, String name, String url) {
+        this.project = project;
+        this.changelist = changelist;
+        this.result = result;
+        this.name = name;
+        this.url = url;
+    }
 
     public String getApiUrl() {
         return apiUrl;
     }
-    
+
     @DataBoundSetter
-    public void setApiUrl(String apiUrl)
-    {
+    public void setApiUrl(String apiUrl) {
         this.apiUrl = Util.fixEmpty(apiUrl);
     }
-    
+
+    public String getCredentialId() {
+        return credentialId;
+    }
+
+    @DataBoundSetter
+    public void setCredentialId(String credentialId) {
+        this.credentialId = Util.fixEmpty(credentialId);
+    }
+
     public String getProject() {
         return project;
     }
-    
+
     @DataBoundSetter
-    public void setProject(String project)
-    {
+    public void setProject(String project) {
         this.project = Util.fixEmpty(project);
     }
-    
+
     public int getChangelist() {
         return changelist;
     }
-    
+
     @DataBoundSetter
-    public void setChangelist(int changelist)
-    {
+    public void setChangelist(int changelist) {
         this.changelist = changelist;
     }
-    
+
     public BadgeResult getResult() {
         return result;
     }
-    
+
     @DataBoundSetter
-    public void setResult(BadgeResult result)
-    {
+    public void setResult(BadgeResult result) {
         this.result = result;
     }
-    
+
     public String getName() {
         return name;
     }
-    
+
     @DataBoundSetter
-    public void setName(String name)
-    {
+    public void setName(String name) {
         this.name = Util.fixEmpty(name);
     }
-    
+
     public String getUrl() {
         return url;
     }
-    
+
     @DataBoundSetter
-    public void setUrl(String url)
-    {
+    public void setUrl(String url) {
         this.url = Util.fixEmpty(url);
     }
-    
+
     public boolean isFailOnError() {
         return failOnError;
     }
@@ -149,75 +170,86 @@ public class PostUGSBadgeStep extends Step {
         protected Boolean run() throws Exception {
 
             Jenkins jenkins = Jenkins.get();
-            // Item item = getItemForCredentials(getContext());
             DescriptorImpl desc = jenkins.getDescriptorByType(DescriptorImpl.class);
 
-            URL apiUrl = new URL(step.apiUrl != null ? step.apiUrl : desc.getApiUrl());
-            String userInfo = apiUrl.getUserInfo();
-
-            String file = apiUrl.getPath();
-            if (!file.endsWith("/"))
-            {
-                file += "/";
-            }
-            file += "api/build";
-            if (apiUrl.getQuery() != null)
-            {
-                file += apiUrl.getQuery();
+            String apiUrl = step.apiUrl != null ? step.getApiUrl() : desc.getApiUrl();
+            if (apiUrl == null) {
+                throw new IllegalArgumentException("Neither global config nor step config specifies apiUrl");
             }
 
-            URL endpointUrl = new URL(apiUrl.getProtocol(), apiUrl.getHost(), apiUrl.getPort(), file);
-        
+            if (step.getName() == null) {
+                throw new IllegalArgumentException("No badge name specified");
+            }
+
+            if (step.getResult() == null) {
+                throw new IllegalArgumentException("No badge result specified");
+            }
+
+            if (step.getUrl() == null) {
+                throw new IllegalArgumentException("No badge URL specified");
+            }
+
+            if (step.getProject() == null) {
+                throw new IllegalArgumentException("No badge project specified");
+            }
+
+            String credentialId = step.credentialId != null ? step.getCredentialId() : desc.getCredentialId();
+
             TaskListener listener = getContext().get(TaskListener.class);
             Objects.requireNonNull(listener, "Listener is mandatory here");
 
-            // listener.getLogger().println(Messages.slackSendStepValues(
-            //         defaultIfEmpty(baseUrl), defaultIfEmpty(teamDomain), channel, defaultIfEmpty(color), botUser,
-            //         defaultIfEmpty(tokenCredentialId), notifyCommitters, defaultIfEmpty(iconEmoji), defaultIfEmpty(username), defaultIfEmpty(step.timestamp))
-            // );
-            // final String populatedToken;
-            // try {
-            //     populatedToken = CredentialsObtainer.getTokenToUse(tokenCredentialId, item, token);
-            // } catch (IllegalArgumentException e) {
-            //     listener.error(Messages
-            //             .notificationFailedWithException(e));
-            //     return null;
-            // }
+            String endpointUrl = apiUrl + (!apiUrl.endsWith("/") ? "/" : "") + "api/build";
+
+            StringCredentials credential = null;
+            if (credentialId != null) {
+                credential = com.cloudbees.plugins.credentials.CredentialsProvider.findCredentialById(credentialId,
+                        StringCredentials.class, getContext().get(Run.class));
+                if (credential == null) {
+                    throw new IllegalArgumentException(
+                            String.format("Could not find a credential with id %s", credentialId));
+                }
+            }
+
+            listener.getLogger().println(Messages.postUGSBadgeStepValues(endpointUrl.toString(), step.getChangelist(),
+                    step.getName(), step.getResult().toString(), step.getUrl(), step.getProject()));
 
             JSONObject body = new JSONObject();
             body.put("ChangeNumber", step.getChangelist());
             body.put("BuildType", step.getName());
-            body.put("Result", step.getResult().toString());
+            body.put("Result", step.getResult().getUGSValue());
             body.put("Url", step.getUrl());
             body.put("Project", step.getProject());
 
             try (CloseableHttpClient client = getHttpClient()) {
-                HttpPost post = new HttpPost(endpointUrl.toURI());
+                HttpPost post = new HttpPost(endpointUrl);
 
-                if (userInfo != null)
-                {
+                if (credential != null) {
+                    String userInfo = credential.getSecret().getPlainText();
+                    listener.getLogger().println(userInfo);
                     String authorizationBase64 = java.util.Base64.getEncoder().encodeToString(userInfo.getBytes());
                     post.setHeader("Authorization", "Basic " + authorizationBase64);
+                } else {
+                    listener.getLogger().println("Authless");
+
                 }
-    
+
                 post.setHeader("Content-Type", "application/json; charset=utf-8");
                 post.setEntity(new StringEntity(body.toString(), StandardCharsets.UTF_8));
-    
+
                 try (CloseableHttpResponse response = client.execute(post)) {
                     int responseCode = response.getStatusLine().getStatusCode();
                     HttpEntity entity = response.getEntity();
-                    String responseString = entity != null ? EntityUtils.toString(entity) : "(null)"; 
+                    String responseString = entity != null ? EntityUtils.toString(entity) : "(null)";
                     if (responseCode != HttpStatus.SC_OK) {
                         logger.log(Level.SEVERE, "Posting to UGS metadata server failed. Response: " + responseString);
                         logger.log(Level.SEVERE, "Response Code: " + responseCode);
                         if (step.failOnError) {
-                            if (responseString != null) {
-                                throw new AbortException(Messages.postFailedWithException(responseString));
+                            if (responseString != null && !responseString.isEmpty()) {
+                                throw new AbortException(
+                                        Messages.postFailedWithStatusAndResponse(responseCode, responseString));
                             }
-                            throw new AbortException(Messages.postFailed());
-                        }
-                        else
-                        {
+                            throw new AbortException(Messages.postFailedWithStatus(responseCode));
+                        } else {
                             if (responseString != null) {
                                 listener.error(Messages.postFailedWithException(responseString));
                             }
@@ -229,12 +261,9 @@ public class PostUGSBadgeStep extends Step {
                     }
                 } catch (Exception e) {
                     logger.log(Level.SEVERE, "Error posting to UGS metadata server", e);
-                    if (step.isFailOnError())
-                    {
+                    if (step.isFailOnError()) {
                         throw new AbortException(Messages.postFailedWithException(e));
-                    }
-                    else
-                    {
+                    } else {
                         listener.error(Messages.postFailedWithException(e));
                         return false;
                     }
@@ -246,58 +275,58 @@ public class PostUGSBadgeStep extends Step {
             }
             return true;
         }
-        
+
         protected CloseableHttpClient getHttpClient() {
             Jenkins jenkins = Jenkins.getInstanceOrNull();
             ProxyConfiguration proxy = jenkins != null ? jenkins.proxy : null;
-            
+
             int timeoutInSeconds = 60;
-    
+
             RequestConfig config = RequestConfig.custom()
                     .setConnectTimeout(timeoutInSeconds * 1000)
                     .setConnectionRequestTimeout(timeoutInSeconds * 1000)
                     .setSocketTimeout(timeoutInSeconds * 1000).build();
-    
+
             final HttpClientBuilder clientBuilder = HttpClients
-                .custom()
-                .useSystemProperties()
-                .setDefaultRequestConfig(config);
+                    .custom()
+                    .useSystemProperties()
+                    .setDefaultRequestConfig(config);
             final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
             clientBuilder.setDefaultCredentialsProvider(credentialsProvider);
-    
+
             if (proxy != null) {
                 final HttpHost proxyHost = new HttpHost(proxy.name, proxy.port);
-                final HttpRoutePlanner routePlanner = new NoProxyHostCheckerRoutePlanner(proxy.getNoProxyHost(), proxyHost);
+                final HttpRoutePlanner routePlanner = new NoProxyHostCheckerRoutePlanner(proxy.getNoProxyHost(),
+                        proxyHost);
                 clientBuilder.setRoutePlanner(routePlanner);
-    
+
                 String username = proxy.getUserName();
                 String password = proxy.getSecretPassword().getPlainText();
                 // Consider it to be passed if username specified. Sufficient?
                 if (username != null && !"".equals(username.trim())) {
                     Credentials credentials;
-                    if (username.indexOf('\\') >= 0){
+                    if (username.indexOf('\\') >= 0) {
                         final String domain = username.substring(0, username.indexOf('\\'));
                         final String user = username.substring(username.indexOf('\\') + 1);
                         credentials = new NTCredentials(user, password, "", domain);
                     } else {
                         credentials = new UsernamePasswordCredentials(username, password);
                     }
-                    credentialsProvider.setCredentials(new AuthScope(proxyHost),credentials);
+                    credentialsProvider.setCredentials(new AuthScope(proxyHost), credentials);
                 }
             }
             return clientBuilder.build();
         }
     }
 
-    
     @Extension
     public static class DescriptorImpl extends StepDescriptor {
-        public static final String PLUGIN_DISPLAY_NAME = "UGS Badge";
         private String apiUrl;
+        private String credentialId;
 
         @Override
         public Set<? extends Class<?>> getRequiredContext() {
-            return ImmutableSet.of(TaskListener.class);
+            return ImmutableSet.of(Run.class, TaskListener.class);
         }
 
         public DescriptorImpl() {
@@ -313,6 +342,15 @@ public class PostUGSBadgeStep extends Step {
             this.apiUrl = apiUrl;
         }
 
+        public String getCredentialId() {
+            return credentialId;
+        }
+
+        @DataBoundSetter
+        public void setCredentialId(String credentialId) {
+            this.credentialId = Util.fixEmpty(credentialId);
+        }
+
         @NonNull
         @Override
         public String getFunctionName() {
@@ -322,7 +360,33 @@ public class PostUGSBadgeStep extends Step {
         @NonNull
         @Override
         public String getDisplayName() {
-            return PLUGIN_DISPLAY_NAME;
+            return Messages.postUGSBadgeStepDisplayName();
+        }
+
+        // Called to populate the credential list in the configuration screens
+        public ListBoxModel doFillCredentialIdItems(@AncestorInPath Item context) {
+            return findCredentialIdItems(context);
+        }
+
+        @Restricted(NoExternalUse.class)
+        public static ListBoxModel findCredentialIdItems(@AncestorInPath Item context) {
+            Jenkins jenkins = Jenkins.get();
+
+            if (context == null && !jenkins.hasPermission(Jenkins.ADMINISTER) ||
+                    context != null && !context.hasPermission(Item.EXTENDED_READ)) {
+                return new StandardListBoxModel();
+            }
+
+            return new StandardListBoxModel()
+                    .includeEmptyValue()
+                    .includeAs(ACL.SYSTEM, context, StringCredentials.class);
+        }
+
+        @Override
+        public boolean configure(StaplerRequest req, JSONObject formData) {
+            req.bindJSON(this, formData);
+            save();
+            return true;
         }
     }
 }

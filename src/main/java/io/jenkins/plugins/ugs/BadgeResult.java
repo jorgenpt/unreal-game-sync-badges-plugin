@@ -1,23 +1,24 @@
 package io.jenkins.plugins.ugs;
 
-
-/**
- * Controls when the slack notification gets sent in case of the matrix project.
- */
 public enum BadgeResult {
-    STARTING("Starting"),
-    FAILURE("Failure"),
-    WARNING("Warning"),
-    SUCCESS("Success"),
-    SKIPPED("Skipped");
+    STARTING("Starting", 0),
+    FAILURE("Failure", 1),
+    WARNING("Warning", 2),
+    SUCCESS("Success", 3),
+    SKIPPED("Skipped", 4);
 
-    private final String ugsString;
+    private final String displayName;
+    private final int ugsValue;
 
-    BadgeResult(String ugsString) {
-        this.ugsString = ugsString;
+    BadgeResult(String displayName, int ugsValue) {
+        this.displayName = displayName;
+        this.ugsValue = ugsValue;
     }
 
-    public String getUGSString() {
-        return ugsString;
+    public String getDisplayName() {
+        return displayName;
+    }
+    public int getUGSValue() {
+        return ugsValue;
     }
 }

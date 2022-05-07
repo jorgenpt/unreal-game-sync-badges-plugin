@@ -11,25 +11,30 @@
     <artifactId>unreal-game-sync-badges</artifactId>
     <version>${revision}${changelist}</version>
     <packaging>hpi</packaging>
-    <name>TODO Plugin</name>
-    <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
+    <name>Unreal Game Sync Badges</name>
+    <description>Post badges for changelists for UGS</description>
+    <url>https://github.com/jorgenpt/${project.artifactId}-plugin</url>
     <licenses>
         <license>
             <name>MIT License</name>
             <url>https://opensource.org/licenses/MIT</url>
         </license>
     </licenses>
+
     <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
         <connection>scm:git:https://github.com/${gitHubRepo}</connection>
         <developerConnection>scm:git:https://github.com/${gitHubRepo}</developerConnection>
         <tag>${scmTag}</tag>
         <url>https://github.com/${gitHubRepo}</url>
-    </scm>    <properties>
+    </scm>
+
+    <properties>
         <revision>1.0</revision>
         <changelist>-SNAPSHOT</changelist>
         <jenkins.version>2.303.3</jenkins.version>
         <java.level>8</java.level>
-        <gitHubRepo>jenkinsci/${project.artifactId}-plugin</gitHubRepo>    </properties>
+        <gitHubRepo>jorgenpt/${project.artifactId}-plugin</gitHubRepo>
+    </properties>
 
     <dependencyManagement>
         <dependencies>
@@ -51,14 +56,27 @@
             <version>3.12.0</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.5.13</version>
-        </dependency>
-        <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
             <version>20220320</version>
+        </dependency>
+
+        <!-- required plugins -->
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>structs</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>apache-httpcomponents-client-4-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>credentials</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.jenkins-ci.plugins</groupId>
+            <artifactId>plain-credentials</artifactId>
         </dependency>
         <dependency>
             <groupId>org.jenkins-ci.plugins.workflow</groupId>
@@ -78,4 +96,24 @@
             <url>https://repo.jenkins-ci.org/public/</url>
         </pluginRepository>
     </pluginRepositories>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jenkins-ci.tools</groupId>
+                <artifactId>maven-hpi-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <developers>
+        <developer>
+            <id>jorgenpt</id>
+            <name>Jørgen P. Tjernø</name>
+            <url>https://github.com/jorgenpt</url>
+            <roles>
+                <role>author</role>
+            </roles>
+        </developer>
+    </developers>
 </project>

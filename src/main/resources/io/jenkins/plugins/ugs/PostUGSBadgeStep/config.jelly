@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
+    <f:entry field="project" title="Project">
+        <f:textbox/>
+    </f:entry>
+    <f:entry field="changelist" title="Changelist">
+        <f:textbox/>
+    </f:entry>
+    <f:entry field="result" title="Result">
+        <f:enum default="STARTING">${it.displayName}</f:enum>
+    </f:entry>
+    <f:entry field="name" title="Badge Name">
+        <f:textbox/>
+    </f:entry>
+    <f:entry field="url" title="Badge URL">
+        <f:textbox/>
+    </f:entry>
+    <f:advanced>
+        <f:entry field="credentialId" title="Credential">
+             <c:select/>
+        </f:entry>
+        <f:entry field="apiUrl" title="Override API url">
+             <f:textbox />
+        </f:entry>
+        <f:entry field="isFailOnError">
+            <f:checkbox title="Fail On Error" default="false"/>
+        </f:entry>
+    </f:advanced>
+</j:jelly>
