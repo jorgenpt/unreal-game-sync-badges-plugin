@@ -1,4 +1,7 @@
 <?jelly escape-by-default='true'?>
+<!--
+  This view is used to render the plugin list page.
+-->
 <div>
-    TODO
+  Integrates Jenkins with an Unreal Game Sync (UGS) metadata server, allowing you to publish badges.
 </div>

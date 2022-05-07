@@ -11,8 +11,8 @@
     <artifactId>unreal-game-sync-badges</artifactId>
     <version>${revision}${changelist}</version>
     <packaging>hpi</packaging>
-    <name>Unreal Game Sync Badges</name>
-    <description>Post badges for changelists for UGS</description>
+    <name>Unreal Game Sync (UGS) Badges</name>
+    <description>Integrates Jenkins with an Unreal Game Sync (UGS) metadata server, allowing you to publish badges</description>
     <url>https://github.com/jorgenpt/${project.artifactId}-plugin</url>
     <licenses>
         <license>
