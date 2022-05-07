@@ -223,13 +223,12 @@ public class PostUGSBadgeStep extends Step {
                 HttpPost post = new HttpPost(endpointUrl);
 
                 if (credential != null) {
+                    listener.getLogger().println(Messages.authedPost(credentialId));
                     String userInfo = credential.getSecret().getPlainText();
-                    listener.getLogger().println(userInfo);
                     String authorizationBase64 = java.util.Base64.getEncoder().encodeToString(userInfo.getBytes());
                     post.setHeader("Authorization", "Basic " + authorizationBase64);
                 } else {
-                    listener.getLogger().println("Authless");
-
+                    listener.getLogger().println(Messages.authlessPost());
                 }
 
                 post.setHeader("Content-Type", "application/json; charset=utf-8");
