@@ -1,2 +1,6 @@
 _extends: .github
 tag-template: unreal-game-sync-badges-$NEXT_MINOR_VERSION
+template: |
+  ## What’s Changed
+
+  $CHANGES
