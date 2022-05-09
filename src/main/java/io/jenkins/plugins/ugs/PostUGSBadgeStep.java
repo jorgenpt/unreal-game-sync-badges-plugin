@@ -224,7 +224,7 @@ public class PostUGSBadgeStep extends Step {
                 if (credential != null) {
                     listener.getLogger().println(Messages.authedPost(credentialId));
                     String userInfo = credential.getSecret().getPlainText();
-                    String authorizationBase64 = java.util.Base64.getEncoder().encodeToString(userInfo.getBytes());
+                    String authorizationBase64 = java.util.Base64.getEncoder().encodeToString(userInfo.getBytes("UTF-8"));
                     post.setHeader("Authorization", "Basic " + authorizationBase64);
                 } else {
                     listener.getLogger().println(Messages.authlessPost());
