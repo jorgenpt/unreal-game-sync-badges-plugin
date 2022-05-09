@@ -12,6 +12,7 @@ unreal-game-sync-badges is tested with [RUGS](https://github.com/jorgenpt/rugs),
 
 First, install this plugin on your Jenkins server:
 
+1. Download the `.hpi` file from [the latest release of this plugin](https://github.com/jorgenpt/unreal-game-sync-badges-plugin/releases/latest)
 1. On your Jenkins instance, go to `Manage Jenkins`
 1. Navigate to `Manage Plugins`
 1. Change the tab to `Advanced`
